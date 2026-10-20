@@ -1,5 +1,5 @@
 from enum import Enum
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status #type:ignore
 
 
 class RoleEnum(str, Enum):

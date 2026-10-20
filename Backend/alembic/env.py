@@ -2,8 +2,8 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config #type:ignore
+from sqlalchemy import pool #type:ignore
 
 from alembic import context
 
@@ -11,8 +11,8 @@ from alembic import context
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # 2. Import Base and models for Alembic autogenerate support
-from app.db.session import Base
-import app.models  # Ensures all SQLAlchemy models are registered
+from app.db.session import Base #type:ignore
+import app.models  # Ensures all SQLAlchemy models are registered #type:ignore
 
 # Alembic Config object
 config = context.config
