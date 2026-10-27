@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -11,6 +11,12 @@ class DepartmentBase(BaseModel):
 
 class DepartmentCreate(DepartmentBase):
     pass
+
+
+class DepartmentUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
 
 
 class DepartmentResponse(DepartmentBase):
@@ -29,6 +35,12 @@ class TeamBase(BaseModel):
 
 class TeamCreate(TeamBase):
     pass
+
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    department_id: Optional[int] = None
+    manager_id: Optional[int] = None
 
 
 class TeamResponse(TeamBase):

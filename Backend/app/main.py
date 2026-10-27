@@ -23,3 +23,8 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.get("/")
 def root():
     return {"status": "online", "system": settings.PROJECT_NAME}
+#uvicorn app.main:app --reload --port 8001
+#npm run dev
+#http://localhost:3000/login
+#http://localhost:8001
+#set PYTHONPATH=. && python seed_admin.py

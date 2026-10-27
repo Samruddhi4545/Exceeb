@@ -1,6 +1,7 @@
 from typing import List, Union
 from pydantic import AnyHttpUrl, PostgresDsn, validator
 from pydantic_settings import BaseSettings #type:ignore
+from urllib.parse import quote_plus 
 
 
 class Settings(BaseSettings):
@@ -17,10 +18,15 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: Union[str, None] = None
 
     @validator("SQLALCHEMY_DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Union[str, None], values: dict) -> str:
+    def assemble_db_connection(cls, v, values):
         if isinstance(v, str):
             return v
-        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}/{values.get('POSTGRES_DB')}"
+        pw = quote_plus(values.get("POSTGRES_PASSWORD"))
+        return (
+            f"postgresql://{values.get('POSTGRES_USER')}:{pw}"
+            f"@{values.get('POSTGRES_SERVER')}:{values.get('POSTGRES_PORT')}"
+            f"/{values.get('POSTGRES_DB')}"
+        )
 
     # JWT & Security
     SECRET_KEY: str = "change_this_to_a_secure_secret_key_in_production"

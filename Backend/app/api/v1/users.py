@@ -11,7 +11,7 @@ from app.utils.employee_id import generate_employee_id
 router = APIRouter()
 
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/me", response_model=UserResponse)
 def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
     """Create a new user and assign automatically generated Employee ID."""
     existing_user = db.query(User).filter(User.email == user_in.email).first()
@@ -43,7 +43,7 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/me", response_model=List[UserResponse])
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Retrieve all users."""
     return db.query(User).offset(skip).limit(limit).all()
