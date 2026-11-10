@@ -1,15 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, status #type:ignore
+from fastapi import APIRouter, Depends, HTTPException,Query, status #type:ignore
 from sqlalchemy.orm import Session #type:ignore
 from typing import List
 
 from app.db.session import get_db
+from app.api.deps import require_roles, get_current_user
 from app.models.team import Team
 from app.schemas.department_team import TeamCreate, TeamResponse
+from app.schemas.user import UserRole
 
 router = APIRouter()
 
 
-@router.post("/", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=TeamResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(
+            require_roles(
+                [
+                    UserRole.MAIN_ADMIN,
+                    UserRole.ADMIN,
+                    UserRole.SUPERVISOR,
+                    UserRole.MANAGER,
+                ]
+            )
+        )
+    ],
+)
 def create_team(team_in: TeamCreate, db: Session = Depends(get_db)):
     """Create a new team under a department."""
     db_team = Team(
@@ -23,7 +41,15 @@ def create_team(team_in: TeamCreate, db: Session = Depends(get_db)):
     return db_team
 
 
-@router.get("/", response_model=List[TeamResponse])
-def read_teams(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Retrieve all teams."""
-    return db.query(Team).offset(skip).limit(limit).all()
+@router.get(
+    "/",
+    response_model=List[TeamResponse],
+    dependencies=[Depends(get_current_user)],
+)
+def read_teams(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Retrieve all teams with bounded pagination."""
+    return db.query(Team).order_by(Team.id).offset(skip).limit(limit).all()

@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status #type:ignore
-from sqlalchemy.orm import Session #type:ignore
 from typing import List, Optional
 from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query, status  # type: ignore
 from pydantic import BaseModel
+from sqlalchemy.orm import Session  # type: ignore
 
 from app.db.session import get_db
+from app.api.deps import require_roles, get_current_user
 from app.models.task import Task, TaskSubmission, TaskStatus
-
+from app.models.user import User
+from app.schemas.user import UserRole
 router = APIRouter()
 
 
@@ -33,27 +35,80 @@ class TaskVerifyRequest(BaseModel):
     rejection_reason: Optional[str] = None
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def create_task(task_in: TaskCreate, db: Session = Depends(get_db)):
-    """Create a new task and assign it department-wise or employee-wise."""
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(
+            require_roles(
+                [
+                    UserRole.MAIN_ADMIN,
+                    UserRole.ADMIN,
+                    UserRole.SUPERVISOR,
+                    UserRole.MANAGER,
+                ]
+            )
+        )
+    ],
+)
+def create_task(
+    task_in: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new task (Restricted to Management roles)."""
+    clean_title = task_in.title.strip()
+    clean_description = (task_in.description or "").strip() or None
+
+    if not clean_title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task title cannot be empty or whitespace.",
+        )
+
     db_task = Task(
-        title=task_in.title,
-        description=task_in.description,
+        title=clean_title,
+        description=clean_description,
         department_id=task_in.department_id,
         campaign_id=task_in.campaign_id,
         assigned_to_id=task_in.assigned_to_id,
-        created_by_id=task_in.created_by_id,
+        created_by_id=current_user.id,
         deadline=task_in.deadline,
-        status=TaskStatus.YET_TO_START
+        status=TaskStatus.YET_TO_START,
     )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     return db_task
 
+@router.get(
+    "/",
+    dependencies=[Depends(get_current_user)],
+)
+def read_tasks(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """Retrieve tasks with deterministic ordering and bounded pagination."""
+    return (
+        db.query(Task)
+        .order_by(Task.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 @router.post("/submit")
-def submit_task_proof(submission_in: TaskSubmissionCreate, db: Session = Depends(get_db)):
+@router.post(
+    "/submit",
+    dependencies=[Depends(get_current_user)],
+)
+def submit_task_proof(
+    submission_in: TaskSubmissionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Employee submits task completion request along with proof files."""
     task = db.query(Task).filter(Task.id == submission_in.task_id).first()
     if not task:
@@ -72,9 +127,23 @@ def submit_task_proof(submission_in: TaskSubmissionCreate, db: Session = Depends
     return {"status": "success", "message": "Task submitted for manager verification"}
 
 
-@router.post("/verify")
+@router.post(
+    "/verify",
+    dependencies=[
+        Depends(
+            require_roles(
+                [
+                    UserRole.MAIN_ADMIN,
+                    UserRole.ADMIN,
+                    UserRole.SUPERVISOR,
+                    UserRole.MANAGER,
+                ]
+            )
+        )
+    ],
+)
 def verify_task(verify_in: TaskVerifyRequest, db: Session = Depends(get_db)):
-    """Manager verifies or rejects a submitted task."""
+    """Manager verifies or rejects a submitted task (Restricted to Management roles)."""
     submission = db.query(TaskSubmission).filter(TaskSubmission.id == verify_in.submission_id).first()
     if not submission:
         raise HTTPException(status_code=404, detail="Submission record not found")

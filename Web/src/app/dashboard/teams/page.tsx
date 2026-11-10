@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { UserRole } from "@/types";
 import { api } from "@/lib/api";
-
 export default function TeamsPage() {
 const [teams, setTeams] = useState<any[]>([]);
 const [loading, setLoading] = useState(true);
 
+const { user } = useAuth();
+
+const isAuthorized =
+    user?.role === UserRole.MAIN_ADMIN ||
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.SUPERVISOR ||
+    user?.role === UserRole.MANAGER;
 useEffect(() => {
+    if (!isAuthorized) return;
+
     api
     .get("/teams/")
     .then((res) => {
@@ -15,7 +25,18 @@ useEffect(() => {
         setLoading(false);
     })
     .catch(() => setLoading(false));
-}, []);
+}, [isAuthorized]);
+
+if (!isAuthorized) {
+    return (
+    <div className="p-8 bg-slate-900 border border-slate-800 rounded-xl text-center">
+        <h2 className="text-xl font-bold text-red-400">Access Restricted</h2>
+        <p className="text-sm text-slate-400 mt-2">
+        Your role ({user?.role}) does not have permission to access team management.
+        </p>
+    </div>
+    );
+}
 
 return (
     <div className="space-y-6">
